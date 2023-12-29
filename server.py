@@ -1,5 +1,3 @@
-from p2p.node import Node 
+from p2p.node import P2PNode 
 
-node = Node('localhost', 5000)
-#node.connect('localhost', 3000)
-node.start()
+server = P2PNode('localhost', 3000)
