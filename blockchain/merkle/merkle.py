@@ -20,7 +20,7 @@ class MerkleTree:
             result.append(combined)
         return result
     def combine_hashes(self, left, right):
-        combined = left + right 
+        combined = left + right
         return hashlib.sha256(combined.encode()).hexdigest()
     def hash_transaction(self, transaction): return hashlib.sha256(str(transaction).encode()).hexdigest()
     def get_root(self): return None if not self.tree else self.tree[0]
