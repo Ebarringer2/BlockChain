@@ -1,6 +1,7 @@
 class Block:
-    def __init__(self, index, timestamp, transactions, prev_hash, proof):
+    def __init__(self, index, timestamp, transactions, prev_hash, proof, owner=None):
         self.index = index
+        self.owner = owner
         self.timestamp = timestamp
         self.transactions = transactions
         self.proof = proof
@@ -12,4 +13,5 @@ class Block:
             'transactions': self.transactions,
             'proof': self.proof,
             'previous_hash': self.prev_hash,
+            'owner': self.owner
         }
