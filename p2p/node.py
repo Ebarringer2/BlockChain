@@ -1,12 +1,20 @@
 import socket
 import threading
+import hashlib
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+NODE_PATH = os.getenv('NODE_PATH')
 
 class P2PNode:
-    def __init__(self, host, port):
+    def __init__(self, host, port, name):
         self.host = host
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connections = []
+        self.id = hashlib.sha256(name.encode()).hexdigest()
+        with open(NODE_PATH, 'a+') as f: f.write(f"NAME: {name} | ID: {self.id}\n")
         self.start()
     def start(self):
         self.sock.bind((self.host, self.port))

@@ -5,12 +5,13 @@ from blockchain.proof.pow import Pow
 from time import time
 
 class Server:
-    def __init__(self, mine_path : str, chain_path : str):
+    def __init__(self, mine_path : str, chain_path : str, hashes_path : str):
         self.app = Flask(__name__)
         self.blockchain = []
         self.num_mined : int = 0
         self.mine_path = mine_path
         self.chain_path = chain_path
+        self.hashes_path = hashes_path
         self.setup_routes() 
         self.load_chain()
     def setup_routes(self):
@@ -56,6 +57,7 @@ class Server:
             f.write(f'{block_hash} MINED | start: {start_time} | elapsed: {elapsed}')
             f.write('\n')
         with open(self.chain_path, 'w') as f: f.write(str(self.blockchain))
+        with open(self.hashes_path, 'a+') as f: f.write(f"BLOCK {block.index}: {block_hash}\n")
         return jsonify({'chain': self.blockchain, 'length': len(self.blockchain)}), 200
     def get_chain_endpoints(self): return jsonify({'chain': self.blockchain, 'length': len(self.blockchain)}), 200
     def run(self, host='0.0.0.0', port=5000): self.app.run(host=host, port=port)
@@ -64,7 +66,10 @@ class Server:
     def load_chain(self):
         try:
             with open(self.chain_path, 'r') as f:
-                saved_blockchain = eval(f.read())
+                chain = f.read()
+                saved_blockchain = ''
+                if chain:
+                    saved_blockchain = eval(f.read())
                 if isinstance(saved_blockchain, list):
                     self.printgap()
                     print('VALID BLOCKCHAIN FOUND')
