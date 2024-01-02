@@ -1,17 +1,18 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from blockchain.merkle.merkle import MerkleTree
 from blockchain.block.block import Block
 from blockchain.proof.pow import Pow
 from time import time
-from random import randint
 
 class Server:
-    def __init__(self, save_file_path : str):
+    def __init__(self, mine_path : str, chain_path : str):
         self.app = Flask(__name__)
         self.blockchain = []
         self.num_mined : int = 0
-        self.save_file_path = save_file_path
-        self.setup_routes()
+        self.mine_path = mine_path
+        self.chain_path = chain_path
+        self.setup_routes() 
+        self.load_chain()
     def setup_routes(self):
         self.app.route('/mine', methods=['GET'])(self.mine_endpoint)
         self.app.route('/chain', methods=['GET'])(self.get_chain_endpoints)
@@ -51,11 +52,26 @@ class Server:
         self.num_mined += 1
         self.printgap()
         print(f'DIFFICULTY: {self.update_pow()}')
-        with open(self.save_file_path, 'a+') as f:
-            f.write(f'BLOCK MINED | start: {start_time} | end: {end_time} | elapsed: {elapsed}')
+        with open(self.mine_path, 'a+') as f:
+            f.write(f'{block_hash} MINED | start: {start_time} | elapsed: {elapsed}')
             f.write('\n')
+        with open(self.chain_path, 'w') as f: f.write(str(self.blockchain))
         return jsonify({'chain': self.blockchain, 'length': len(self.blockchain)}), 200
-    def get_chain_endpoints(self):  return jsonify({'chain': self.blockchain, 'length': len(self.blockchain)}), 200
+    def get_chain_endpoints(self): return jsonify({'chain': self.blockchain, 'length': len(self.blockchain)}), 200
     def run(self, host='0.0.0.0', port=5000): self.app.run(host=host, port=port)
-    def update_pow(self): return self.num_mined
+    def update_pow(self): return len(self.blockchain)
     def printgap(self): print('\n----------------------------------------------------------------------\n')
+    def load_chain(self):
+        try:
+            with open(self.chain_path, 'r') as f:
+                saved_blockchain = eval(f.read())
+                if isinstance(saved_blockchain, list):
+                    self.printgap()
+                    print('VALID BLOCKCHAIN FOUND')
+                    self.printgap()
+                    self.blockchain = saved_blockchain 
+                else:
+                    print('invalid format in chain file')
+        except FileNotFoundError:
+            print('\nChain file not found. Creating a new blockchain')
+            self.printgap()

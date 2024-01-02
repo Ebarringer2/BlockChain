@@ -27,7 +27,7 @@ class P2PNode:
                 if not data:
                     break
                 message = data.decode('utf-8')
-                print(f"Received message: {message}")
+                print(f"\nReceived message: {message}")
                 self.broadcast(message, client)
             except Exception as e:
                 print(f"Error handling client: {e}")
@@ -49,9 +49,9 @@ class P2PNode:
             print(f"Error sending message to {target}: {e}")
     def run(self):
         while True:
-            target_host = input('Target host: ')
-            target_port = input('Target port: ')
-            message = input('Message: ')
+            target_host = input('\nTarget host: ')
+            target_port = input('\nTarget port: ')
+            message = input('\nMessage: ')
             if message == '/QUIT':
                 break
             self.send_message(

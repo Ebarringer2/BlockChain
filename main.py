@@ -4,5 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 if __name__ == '__main__':
-    server = Server(os.getenv('SAVE_FILE_PATH'))
+    server = Server(
+        mine_path=os.getenv('MINE_PATH'),
+        chain_path=os.getenv('CHAIN_PATH')
+        )
     server.run()
