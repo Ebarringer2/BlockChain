@@ -61,7 +61,18 @@ impl Pow {
         let mut nonce: i32 = 0;
         loop {
             nonce += 1;
-            let input_data = 
+            let input_data: String = format!(
+                "{}{}{}{}{}",
+                self.block.index,
+                self.block.owner,
+                self.block.timestamp,
+                self.block.transactions.join(","),
+                nonce
+            );
+            let hash: Vec<u8> = self.hash(input_data);
+            if hash.starts_with(&target_prefix) {
+                return nonce;
+            }
         }
     }
 }
