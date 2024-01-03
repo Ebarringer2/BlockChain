@@ -1,6 +1,4 @@
 *__pycache__
 *.env
-*.toml
-*.lock 
 *target
 .vscode
