@@ -1,4 +1,4 @@
-from node import P2PNode
+from p2p.node import P2PNode
 from server.server import Server
 
 class Trader:
@@ -15,6 +15,7 @@ class Trader:
         self.blockchain = self.server.blockchain
         self.hashes = ''
         self.get_hashes()
+        self.server.run()
     def get_hashes(self): 
         with open(self.hashes_path, 'r') as f: 
             self.hashes = f.splitlines()

@@ -3,6 +3,7 @@ from blockchain.merkle.merkle import MerkleTree
 from blockchain.block.block import Block
 from blockchain.proof.pow import Pow
 from time import time
+import ast
 
 class Server:
     def __init__(self, mine_path : str, chain_path : str, hashes_path : str):
@@ -69,7 +70,13 @@ class Server:
                 chain = f.read()
                 saved_blockchain = ''
                 if chain:
-                    saved_blockchain = eval(f.read())
+                    data = f.read()
+                    try:
+                        saved_blockchain = ast.literal_eval(data)
+                    except SyntaxError:
+                        self.printgap()
+                        print('same syntax error')
+                        saved_blockchain = []
                 if isinstance(saved_blockchain, list):
                     self.printgap()
                     print('VALID BLOCKCHAIN FOUND')

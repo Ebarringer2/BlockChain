@@ -11,13 +11,15 @@ CHAIN_PATH = os.getenv('CHAIN_PATH')
 
 n_1 = P2PNode(
     host='localhost',
-    port=5000
+    port=5000,
+    name='n_1'
     )
 
 n_2 = P2PNode(
     host='localhost',
-    port=6000
-)
+    port=6000,
+    name='n_1'
+    )
 
 s = Server(
     mine_path=MINE_PATH,
@@ -26,5 +28,10 @@ s = Server(
     )
 
 t = Trader(
-    
-)
+    node_1=n_1,
+    node_2=n_2,
+    server=s,
+    hashes_path=HASHES_PATH
+    ) 
+
+print(t.hashes)
