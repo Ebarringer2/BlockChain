@@ -26,11 +26,16 @@ pub fn calculate_hash(data: String) -> HASH {
 }
 
 #[derive(Debug, Clone)]
-struct SizeError(String);
+struct SizeError(&'static str);
 
 pub struct HashtoString {
     pub hash: HASH,
-    pub string: String
+    pub string: String,
+}
+
+pub struct StringtoHash {
+    pub string: String,
+    pub hash: HASH
 }
 
 pub struct Block {
@@ -39,7 +44,7 @@ pub struct Block {
     pub timestamp: i32,
     pub transactions: Vec<String>,
     pub proof: i32,
-    pub prev_hash: String
+    pub prev_hash: HASH
 }
 
 pub struct Pow {
@@ -50,8 +55,16 @@ pub struct Pow {
 pub struct MerkleTree {
     block: Block,
     transactions: Vec<String>,
-    tree: Vec<HASH>
+    tree: TREE
 }
+
+impl fmt::Display for SizeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SIZING ERROR: {}", self.0)
+    }
+}
+
+impl error::Error for SizeError {}
 
 impl HashtoString {
     pub fn new(hash: HASH) -> Self {
@@ -74,8 +87,14 @@ impl HashtoString {
     }
 }
 
+impl StringtoHash {
+    pub fn new(string: String, hash: HASH) -> Self {
+        
+    }
+}
+
 impl Block {
-    pub fn new(index: i32, owner: String, timestamp: i32, transactions: Vec<String>, proof: i32, prev_hash: String) -> Self {
+    pub fn new(index: i32, owner: String, timestamp: i32, transactions: Vec<String>, proof: i32, prev_hash: HASH) -> Self {
         Block {
             index,
             owner,
@@ -146,16 +165,21 @@ impl MerkleTree {
         let combined: String = left_string + &right_string;
         return calculate_hash(combined);
     }
-    pub fn combine_pairs(&self, pairs: TREE) -> TREE {
-        let result: TREE;
-        if (pairs.len() == 0) {
-            eprintln!()
+    pub fn combine_pairs(&self, pairs: TREE) -> Result<TREE, SizeError> {
+        let mut result: TREE = Vec::new();
+        
+        if (pairs.is_empty()) {
+            return Err(SizeError("length of pairs must be greater than 0"));
+
         }
         for i in (0..pairs.len().step_by(2)) {
-            let left: String = pairs[i];
-            let right = if i + 1 < pairs.len() { pairs[i + 1] } else { left };
-            let combined = self.combine_hashes(left, right);
-            result.append(combined);
+            let left: String = pairs[i].clone();
+            let right: String = if i + 1 < pairs.len() {
+                pairs[i + 1].clone()
+            } else { 
+                left.clone()
+            };
+            let combined: <Vec<u8> as Try>::Output = self.combine_hashes(left, right)?;
         return result;
         }
     }
