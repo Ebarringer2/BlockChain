@@ -62,7 +62,7 @@ class Server:
         return jsonify({'chain': self.blockchain, 'length': len(self.blockchain)}), 200
     def get_chain_endpoints(self): return jsonify({'chain': self.blockchain, 'length': len(self.blockchain)}), 200
     def run(self, host='0.0.0.0', port=5000): self.app.run(host=host, port=port)
-    def update_pow(self): return len(self.blockchain)
+    def update_pow(self): return len(self.blockchain) if len(self.blockchain) <= 7 else 7
     def printgap(self): print('\n----------------------------------------------------------------------\n')
     def load_chain(self):
         try:

@@ -1,7 +1,10 @@
 use ring::digest;
 use rand::Rng;
+use std::error;
+use std::fmt;
 
 type HASH = Vec<u8>;
+type TREE = Vec<String>;
 
 pub fn generate_rand_string() -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -22,6 +25,14 @@ pub fn calculate_hash(data: String) -> HASH {
     context.finish().as_ref().to_vec()
 }
 
+#[derive(Debug, Clone)]
+struct SizeError(String);
+
+pub struct HashtoString {
+    pub hash: HASH,
+    pub string: String
+}
+
 pub struct Block {
     pub index: i32,
     pub owner: String,
@@ -40,6 +51,27 @@ pub struct MerkleTree {
     block: Block,
     transactions: Vec<String>,
     tree: Vec<HASH>
+}
+
+impl HashtoString {
+    pub fn new(hash: HASH) -> Self {
+        let mut string: String;
+        match String::from_utf8(hash) {
+            Ok(s) => {
+                string = s;
+            }
+            Err(e) => {
+                println!("Error converting to String: {}", e);
+            }
+        }
+        HashtoString {
+            hash,
+            string
+        }
+    }
+    pub fn get_string(&self) -> String {
+        return self.string;
+    }
 }
 
 impl Block {
@@ -107,7 +139,24 @@ impl MerkleTree {
         calculate_hash(transaction)
     }
     pub fn combine_hashes(&self, left: HASH, right: HASH) -> HASH {
-        left.extend(right);
-        calculate_hash();
+        let left_converter: HashtoString = HashtoString::new(left);
+        let left_string: String = left_converter.get_string();
+        let right_converter: HashtoString = HashtoString::new(right);
+        let right_string: String = right_converter.get_string();
+        let combined: String = left_string + &right_string;
+        return calculate_hash(combined);
+    }
+    pub fn combine_pairs(&self, pairs: TREE) -> TREE {
+        let result: TREE;
+        if (pairs.len() == 0) {
+            eprintln!()
+        }
+        for i in (0..pairs.len().step_by(2)) {
+            let left: String = pairs[i];
+            let right = if i + 1 < pairs.len() { pairs[i + 1] } else { left };
+            let combined = self.combine_hashes(left, right);
+            result.append(combined);
+        return result;
+        }
     }
 }
