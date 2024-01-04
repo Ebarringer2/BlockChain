@@ -1,16 +1,24 @@
-use ring::aead::Tag;
+// mods
 use ring::digest;
 use rand::Rng;
 use std::error;
 use std::fmt;
+use std::{
+    io::{prelude::*, BufReader},
+    net::{TcpListener, TcpStream}
+};
 
+// types
 type HASH = Vec<u8>;
 type TREE = Vec<String>;
 type TREE_ERR_HANDLE = Result<TREE, SizeError>;
+type BLOCKCHAIN = Vec<Block>;
+
+// consts
+const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+const STRING_LENGTH: usize = 10;
 
 pub fn generate_rand_string() -> String {
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    const STRING_LENGTH: usize = 10;
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     let random_string: String = (0..STRING_LENGTH)
         .map(|_| {
@@ -55,9 +63,19 @@ pub struct Pow {
 }
 
 pub struct MerkleTree {
-    block: Block,
-    transactions: Vec<String>,
-    tree: Result<TREE, SizeError> // for error handling
+    pub block: Block,
+    pub transactions: Vec<String>,
+    pub tree: Result<TREE, SizeError> // for error handling
+}
+
+pub struct Server {
+    pub blockchain: BLOCKCHAIN,
+    pub listener: TcpListener,
+    pub adress: String,
+    pub num_mined: i32,
+    pub mine_path: String,
+    pub chain_path: String,
+    pub hashes_path: String
 }
 
 impl fmt::Display for SizeError {
@@ -208,6 +226,11 @@ impl MerkleTree {
         }
         Ok(result)
     }
+    /// method for calculating the Merkle Root of the Merkle
+    /// Tree object 
+    /// first unwraps the tree attribute, allowing handling for the 
+    /// case at which the tree contains a SizeError
+    /// and handles the case at which the tree is valid
     pub fn calculate_root(&self) -> Result<String, SizeError> {
         match self.get_tree() {
             Ok(tree) => {
@@ -221,5 +244,46 @@ impl MerkleTree {
                 return Err(SizeError("Merkle tree cannot be empty when trying to calculate Merkle Root"))
             }
         }
+    }
+}
+
+impl Server {
+    /// #### creates a new Server object
+    /// 
+    /// #### The adress argument must be of structure Host:Port
+    /// ## Example
+    /// #### let adress = "127.0.0.1:7878"
+    /// ## Params
+    /// #### the path params specify the location of .txt files to read
+    /// #### information from regarding the blockchain history
+    pub fn new(adress: String, mine_path: String, chain_path: String, hashes_path: String) -> Self {
+        let listener: TcpListener = TcpListener::bind(adress).unwrap();
+        let num_mined: i32 = 0;
+        let blockchain: BLOCKCHAIN = Vec::new();
+        Server {
+            blockchain,
+            listener,
+            adress,
+            num_mined,
+            mine_path,
+            chain_path,
+            hashes_path
+        }
+    }
+    pub fn run(&self) {
+        for stream in self.listener.incoming() {
+            let stream = stream.unwrap();
+            println!("received connection");
+        }
+    }
+    pub fn handle_connection(&self, mut stream: TcpStream) {
+        let buf_reader: BufReader<&mut TcpStream> = BufReader::new(&mut stream);
+        let http_request: Vec<_> = buf_reader
+            .lines()
+            .map(|result: Result<String, std::io::Error>| result.unwrap())
+            .take_while(|line: &String| !line.is_empty())
+            .collect();
+        let response: &str = "HTTP/1.1 200 OK\r\n\r\n";
+        stream.write_all(response.as_bytes()).unwrap();
     }
 }
