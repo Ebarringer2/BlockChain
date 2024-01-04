@@ -1,3 +1,4 @@
+use ring::aead::Tag;
 use ring::digest;
 use rand::Rng;
 use std::error;
@@ -5,6 +6,7 @@ use std::fmt;
 
 type HASH = Vec<u8>;
 type TREE = Vec<String>;
+type TREE_ERR_HANDLE = Result<TREE, SizeError>;
 
 pub fn generate_rand_string() -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -55,7 +57,7 @@ pub struct Pow {
 pub struct MerkleTree {
     block: Block,
     transactions: Vec<String>,
-    tree: TREE
+    tree: Result<TREE, SizeError> // for error handling
 }
 
 impl fmt::Display for SizeError {
@@ -87,11 +89,6 @@ impl HashtoString {
     }
 }
 
-impl StringtoHash {
-    pub fn new(string: String, hash: HASH) -> Self {
-        
-    }
-}
 
 impl Block {
     pub fn new(index: i32, owner: String, timestamp: i32, transactions: Vec<String>, proof: i32, prev_hash: HASH) -> Self {
@@ -141,17 +138,44 @@ impl MerkleTree {
         MerkleTree {
             block: block,
             transactions: block.transactions,
-            tree: vec![]
+            // initialize tree as an empty Vec<String> for result enum
+            tree: Ok(Vec::new())
         }
+    }
+    pub fn get_tree(&self) -> Result<&TREE, &SizeError> {
+        // returns reference to TREE inside enum if no error -> the Ok
+        // returns reference to the Err if Err -> Err
+        match &self.tree {
+            Ok(tree) => Ok(tree),
+            Err(err) => Err(err)
+        }
+    }
+    pub fn hash_to_string(&self, hash: HASH) -> String {
+        let converter: HashtoString = HashtoString::new(hash);
+        return converter.get_string()
     }
     pub fn build_tree(&self) {
         if self.transactions.is_empty() {
-            self.tree = vec![];
-        }
-        let mut tree: Vec<HASH> = self.transactions.iter().map(|tx: &String| self.hash_transaction(tx)).collect();
-        while tree.len() > 1 {
-            tree = self.combine_pairs(tree);
-        self.tree = tree;
+            // result enum here again
+            self.tree = Ok(Vec::new());
+        } else {
+            let mut tree: TREE = self.transactions
+                .iter()
+                .map(|tx: &String| self.hash_transaction(tx.to_string()))
+                .map(|hash: HASH| self.hash_to_string(hash))
+                .collect();
+            while tree.len() > 1 {
+                match self.combine_pairs(tree) {
+                    // size error avoided
+                    Ok(new_tree) => tree = new_tree,
+                    // catch size error
+                    Err(err) => {
+                        self.tree = Err(err);
+                        return;
+                    }
+                }
+            }
+            self.tree = Ok(tree);
         }
     }
     pub fn hash_transaction(&self, transaction: String) -> HASH {
@@ -165,22 +189,37 @@ impl MerkleTree {
         let combined: String = left_string + &right_string;
         return calculate_hash(combined);
     }
-    pub fn combine_pairs(&self, pairs: TREE) -> Result<TREE, SizeError> {
+    pub fn combine_pairs(&self, pairs: TREE) -> TREE_ERR_HANDLE {
         let mut result: TREE = Vec::new();
-        
-        if (pairs.is_empty()) {
+        if pairs.is_empty() {
             return Err(SizeError("length of pairs must be greater than 0"));
-
         }
-        for i in (0..pairs.len().step_by(2)) {
+        for i in (0..pairs.len()).step_by(2) {
             let left: String = pairs[i].clone();
             let right: String = if i + 1 < pairs.len() {
                 pairs[i + 1].clone()
             } else { 
                 left.clone()
             };
-            let combined: <Vec<u8> as Try>::Output = self.combine_hashes(left, right)?;
-        return result;
+            let combined_str: String = left + &right;
+            let combined_hash: HASH = calculate_hash(combined_str);
+            let done: String = self.hash_to_string(combined_hash);
+            result.push(done)
+        }
+        Ok(result)
+    }
+    pub fn calculate_root(&self) -> Result<String, SizeError> {
+        match self.get_tree() {
+            Ok(tree) => {
+                if tree.is_empty() {
+                    return Err(SizeError("Merkle tree cannot be empty when trying to calculate Merkle Root"))
+                } else {
+                    return Ok(tree[0].clone())
+                }
+            } 
+            Err(err) => {
+                return Err(SizeError("Merkle tree cannot be empty when trying to calculate Merkle Root"))
+            }
         }
     }
 }
