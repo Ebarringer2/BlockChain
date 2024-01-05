@@ -7,7 +7,9 @@ use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
     sync::{mpsc, Arc, Mutex},
-    thread
+    thread,
+    fs,
+    time::Duration
 };
 
 // types
@@ -82,13 +84,14 @@ pub struct Server {
     pub mine_path: String,
     pub chain_path: String,
     pub hashes_path: String,
+    pub pool: ThreadPool,
     pub receiving: bool,
     pub mineable: bool
 }
 
 pub struct ThreadPool {
     pub workers: Vec<Worker>,
-    pub sender: Option<mpsc::Sender<Job>>
+    pub sender: Option<mpsc::Sender<Job>>,
 }
 
 pub struct Worker {
@@ -289,6 +292,7 @@ impl Server {
         let listener: TcpListener = TcpListener::bind(adress.clone()).unwrap();
         let num_mined: i32 = 0;
         let blockchain: BLOCKCHAIN = Vec::new();
+        let pool: ThreadPool = ThreadPool::new(4);
         Server {
             blockchain,
             listener,
@@ -297,6 +301,7 @@ impl Server {
             mine_path,
             chain_path,
             hashes_path,
+            pool,
             receiving: false,
             mineable: false
         }
@@ -306,7 +311,7 @@ impl Server {
             return Err(AttributeError("Server object must have attribute 'receiving' set to true"));
         }
         while self.receiving { 
-                for stream in self.listener.incoming() {
+                for stream in self.listener.incoming().take(2) {
                     let stream: TcpStream = stream.unwrap();
                     println!("RECEIVED CONNECTION: {:#?}", stream)
                 }    
@@ -314,14 +319,27 @@ impl Server {
         return Ok(());
     }    
     pub fn handle_connection(&self, mut stream: TcpStream) {
-        let buf_reader: BufReader<&mut TcpStream> = BufReader::new(&mut stream);
-        let http_request: Vec<_> = buf_reader
-            .lines()
-            .map(|result: Result<String, std::io::Error>| result.unwrap())
-            .take_while(|line: &String| !line.is_empty())
-            .collect();
-        let response: &str = "HTTP/1.1 200 OK\r\n\r\n";
+        let mut buffer: [u8; 1024] = [0; 1024];
+        stream.read(&mut buffer).unwrap();
+        let get = b"GET / HTTP/1.1\r\n";
+        let sleep = b"GET /sleep HTTP/1.1\r\n";
+        let (status_line, filename) = if buffer.starts_with(get) {
+            ("HTTP/1.1 200 OK", "hello.html")
+        } else if buffer.starts_with(sleep) {
+            thread::sleep(Duration::from_secs(5));
+            ("HTTP/1.1 200 OK", "hello.html")
+        } else {
+            ("HTTP/1.1 404 NOT FOUND", "404.html")
+        };
+        let contents = fs::read_to_string(filename).unwrap();
+        let response = format!(
+            "{}\r\nContent-Length: {}\r\n\r\n{}",
+            status_line,
+            contents.len(),
+            contents
+        );
         stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
     }  
 }
 
@@ -350,7 +368,7 @@ impl ThreadPool {
     where
         F: FnOnce() + Send + 'static,
     {
-        let job: Box<F> = Box::new(f);
+        let job: Job = Box::new(f);
         self.sender.as_ref().unwrap().send(job).unwrap();
     }
 }
