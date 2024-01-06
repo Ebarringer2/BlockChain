@@ -4,7 +4,7 @@ use rand::Rng;
 use std::error;
 use std::fmt;
 use std::{
-    io::{prelude::*, BufReader},
+    io::prelude::*,
     net::{TcpListener, TcpStream},
     sync::{mpsc, Arc, Mutex},
     thread,
@@ -56,14 +56,17 @@ pub struct StringtoHash {
     pub hash: HASH
 }
 
+#[derive(Debug)]
 pub struct Block {
-    pub index: i32,
+    pub index: i32, 
     pub owner: String,
     pub timestamp: i32,
     pub transactions: Vec<String>,
     pub proof: i32,
     pub prev_hash: HASH
 }
+
+//impl Copy for Block {}
 
 pub struct Pow {
     pub block: Block,
@@ -76,18 +79,27 @@ pub struct MerkleTree {
     pub tree: Result<TREE, SizeError> // for error handling
 }
 
+#[derive(Debug)]
 pub struct Server {
     pub blockchain: BLOCKCHAIN,
-    pub listener: TcpListener,
+    //pub listener: TcpListener,
     pub adress: String,
     pub num_mined: i32,
     pub mine_path: String,
     pub chain_path: String,
     pub hashes_path: String,
-    pub pool: ThreadPool,
+    //pub pool: ThreadPool,
     pub receiving: bool,
     pub mineable: bool
 }
+
+//impl Copy for Server {}
+
+//    impl Clone for Server {
+//        fn clone(&self) -> Self {
+//            *self
+//        }
+//    }
 
 pub struct ThreadPool {
     pub workers: Vec<Worker>,
@@ -96,7 +108,8 @@ pub struct ThreadPool {
 
 pub struct Worker {
     pub id: usize,
-    pub thread: Option<thread::JoinHandle<()>>
+    pub thread: Option<thread::JoinHandle<()>>,
+    pub receiver: Arc<Mutex<mpsc::Receiver<Job>>>
 }
 
 impl fmt::Display for SizeError {
@@ -289,31 +302,36 @@ impl Server {
     /// #### receiving and minable status of the server are preset to be false,
     /// #### so before the server is accessable, one must change these attributes
     pub fn new(adress: String, mine_path: String, chain_path: String, hashes_path: String) -> Self {
-        let listener: TcpListener = TcpListener::bind(adress.clone()).unwrap();
+        //let listener: TcpListener = TcpListener::bind(adress.clone()).unwrap();
         let num_mined: i32 = 0;
         let blockchain: BLOCKCHAIN = Vec::new();
-        let pool: ThreadPool = ThreadPool::new(4);
+        //let pool: ThreadPool = ThreadPool::new(4);
         Server {
             blockchain,
-            listener,
+            //listener,
             adress,
             num_mined,
             mine_path,
             chain_path,
             hashes_path,
-            pool,
             receiving: false,
             mineable: false
         }
     }
-    pub fn run(&self) -> Result<(), AttributeError> {
-        if !self.receiving {
+    pub fn run(server: Server, listener: TcpListener, pool: ThreadPool) -> Result<(), AttributeError> {
+        if !server.receiving {
             return Err(AttributeError("Server object must have attribute 'receiving' set to true"));
         }
-        while self.receiving { 
-                for stream in self.listener.incoming().take(2) {
+        //let server_arc = Arc::new(server.clone());
+        let server_arc: Arc<Server> = Arc::new(server);
+        while server_arc.receiving { 
+                for stream in listener.incoming().take(2) {
                     let stream: TcpStream = stream.unwrap();
-                    println!("RECEIVED CONNECTION: {:#?}", stream)
+                    //let server_clone = Arc::clone(&server_arc);
+                    println!("RECEIVED CONNECTION: {:#?}", stream);
+                    pool.execute(move || {
+                        server.handle_connection(stream);
+                    })
                 }    
         } 
         return Ok(());
@@ -354,8 +372,8 @@ impl ThreadPool {
     pub fn new(size: usize) -> ThreadPool {
         assert!(size > 0);
         let (sender, receiver) = mpsc::channel();
-        let receiver = Arc::new(Mutex::new(receiver));
-        let mut workers = Vec::with_capacity(size);
+        let receiver: Arc<Mutex<mpsc::Receiver<Box<dyn FnOnce() + Send>>>> = Arc::new(Mutex::new(receiver));
+        let mut workers: Vec<Worker> = Vec::with_capacity(size);
         for id in 0..size {
             workers.push(Worker::new(id, Arc::clone(&receiver)));
         }
@@ -387,8 +405,9 @@ impl Drop for ThreadPool {
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+        let cloned_receiver = Arc::clone(&receiver);
         let thread: thread::JoinHandle<_> = thread::spawn(move || loop {
-            let message: Result<Box<dyn FnOnce() + Send>, mpsc::RecvError> = receiver.lock().unwrap().recv();
+            let message: Result<Box<dyn FnOnce() + Send>, mpsc::RecvError> = cloned_receiver.lock().unwrap().recv();
             match message {
                 Ok(job) => {
                     println!("Worker {id} got a job| EXECUTING");
@@ -402,7 +421,8 @@ impl Worker {
         });
         Worker {
             id, 
-            thread: Some(thread)
+            thread: Some(thread),
+            receiver
         }
     }
 }

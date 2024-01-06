@@ -1,5 +1,6 @@
 mod blockchain;
 
+use std::net::TcpListener;
 //use blockchain::Block;
 //use blockchain::MerkleTree;
 //use blockchain::Pow;
@@ -11,10 +12,11 @@ fn main() {
     // for dev purpose
     let path: String = "NONE".to_string();
     let server: Server = Server::new(adress.clone(), path.clone(), path.clone(), path.clone());
-    let pool: ThreadPool = server.pool;
-    for stream in server.listener.incoming().take(2) {
+    let pool: ThreadPool = ThreadPool::new(4);
+    let listener: TcpListener = TcpListener::bind(server.adress.clone()).unwrap();
+    for stream in listener.incoming().take(2) {
         let stream: std::net::TcpStream = stream.unwrap();
-        pool.execute(move || {
+        pool.execute(|| {
             server.handle_connection(stream)
         });
     }
