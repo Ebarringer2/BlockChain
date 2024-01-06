@@ -18,10 +18,12 @@ type TREE = Vec<String>;
 type TreeErrHandle = Result<TREE, SizeError>;
 type BLOCKCHAIN = Vec<Block>;
 type Job = Box<dyn FnOnce() + Send + 'static>;
+type StringArr<const N: usize> = [char; N];
 
 // consts
 const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 const STRING_LENGTH: usize = 10;
+
 
 pub fn generate_rand_string() -> String {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
@@ -38,6 +40,17 @@ pub fn calculate_hash(data: String) -> HASH {
     let mut context = digest::Context::new(&digest::SHA256);
     context.update(data.as_bytes());
     context.finish().as_ref().to_vec()
+}
+
+pub fn string_to_arr<const N: usize>(string: &str) ->  [char; N] {
+    let mut data: [char; N] = ['\0'; N];
+    let chars: Vec<char> = string.chars().collect();
+    data[..chars.len()].copy_from_slice(&chars);
+    return data
+}
+
+pub fn arr_to_string(arr: &[char]) -> String {
+    arr.iter().collect()
 }
 
 #[derive(Debug, Clone)]
@@ -57,9 +70,16 @@ pub struct StringtoHash {
 }
 
 #[derive(Debug)]
+/// IMPORTANT
+/// 
+/// length of owner arr is capped at 25
+/// 
+/// make sure the attribute here can be stored in a
+/// 
+/// [char; 25] suitably
 pub struct Block {
     pub index: i32, 
-    pub owner: String,
+    pub owner: StringArr<25>,
     pub timestamp: i32,
     pub transactions: Vec<String>,
     pub proof: i32,
@@ -150,7 +170,7 @@ impl HashtoString {
 }
 
 impl Block {
-    pub fn new(index: i32, owner: String, timestamp: i32, transactions: Vec<String>, proof: i32, prev_hash: HASH) -> Self {
+    pub fn new(index: i32, owner: [char; 25], timestamp: i32, transactions: Vec<String>, proof: i32, prev_hash: HASH) -> Self {
         Block {
             index,
             owner,
@@ -335,7 +355,7 @@ impl Server {
                 }    
         } 
         return Ok(());
-    }    
+    }  
     pub fn handle_connection(&self, mut stream: TcpStream) {
         let mut buffer: [u8; 1024] = [0; 1024];
         stream.read(&mut buffer).unwrap();
