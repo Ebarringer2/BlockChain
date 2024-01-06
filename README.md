@@ -1,2 +1,3 @@
 # BlockChain
-blockchain implementation in Python
+Blockchain framework written in Python and Rust
+
